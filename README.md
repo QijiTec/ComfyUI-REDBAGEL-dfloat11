@@ -1,6 +1,7 @@
 # ComfyUI-Bagel
 
 A ComfyUI custom node package based on the BAGEL-7B-MoT multimodal model.
+
 没有完成，当前只是Fork原库代码，看懂中文的别折腾我这个。
 
 ## About BAGEL
