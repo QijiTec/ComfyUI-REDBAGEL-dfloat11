@@ -1,6 +1,13 @@
-# ComfyUI-Bagel
+# ComfyUI-REDBagel-DF11
 
 A ComfyUI custom node package based on the BAGEL-7B-MoT multimodal model.
+支持 dfloat11 量化规格模型，24G可跑全量无损画质，刀黄行动（手刃黄夹克）！
+Support dfloat11 quantization specification model, 24G can run full lossless image quality
+
+about dfloat11
+
+https://github.com/LeanModels/DFloat11
+DFloat11 is a lossless compression framework that reduces the size of Large Language Models (LLMs) by approximately 30% while preserving bit-for-bit identical outputs to the original model. It enables efficient GPU inference on resource-constrained hardware without sacrificing accuracy.
 
 佬杨同志 @wikeeyang 手撸 node.py 代码,现已支持加载DF11规格模型
 
