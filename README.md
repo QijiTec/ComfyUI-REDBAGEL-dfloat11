@@ -21,7 +21,7 @@ DFloat11 is a lossless compression framework that reduces the size of Large Lang
 1. 需要安装 dfloat11[cuda12] 依赖包。
 2. 安装 ComfyUI-BAGEL 插件(已有则不需要重装)。
 3. 把原来的 node.py 文件重命名进行备份。
-4. 用群里发的 node.py 替换。
+4. 用本仓库的 node.py 替换。
 5. 启动 ComfyUI，会比原来插件增加了一个 DF11 模型的加载节点，其它不变。
 
 requirements.txt 更新DF11
