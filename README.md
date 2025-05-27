@@ -1,4 +1,4 @@
-# ComfyUI-REDBagel-DF11
+# ComfyUI-REDBAGEL-DF11
 
 A ComfyUI custom node package based on the BAGEL-7B-MoT multimodal model.
 
