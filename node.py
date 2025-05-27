@@ -8,6 +8,8 @@ from typing import Dict, Tuple, Optional, Any, Union
 from PIL import Image
 from folder_paths import folder_names_and_paths
 
+from dfloat11 import DFloat11Model
+
 # Add current directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
@@ -16,6 +18,7 @@ sys.path.insert(0, current_dir)
 try:
     from accelerate import (
         infer_auto_device_map,
+        dispatch_model,
         load_checkpoint_and_dispatch,
         init_empty_weights,
     )
@@ -39,8 +42,8 @@ except ImportError as e:
 
 # Register the BAGEL model folder
 models_dir = os.path.join(os.getcwd(), "models")
-folder_names_and_paths["bagel"] = (
-    [os.path.join(models_dir, "bagel")],
+folder_names_and_paths["Bagel"] = (
+    [os.path.join(models_dir, "Bagel")],
     [".json", ".safetensors"],
 )
 
@@ -60,23 +63,23 @@ def set_seed(seed: int) -> int:
 
 
 def download_model_with_git(
-    model_path: str, repo_id: str = "ByteDance-Seed/BAGEL-7B-MoT"
-) -> bool:
+    model_dir: str, repo_id: str = "ByteDance-Seed/BAGEL-7B-MoT"
+) -> str:
     """
     Download model using git lfs (recommended method)
 
     Args:
-        model_path: Local path to download the model
+        model_dir: Directory to download the repo to (repo files will be placed directly here)
         repo_id: Hugging Face repository ID
 
     Returns:
-        True if successful, False otherwise
+        Path to the downloaded model if successful, None otherwise
     """
     try:
-        print(f"Downloading BAGEL model using git lfs to {model_path}...")
+        print(f"Downloading BAGEL model using git lfs to {model_dir}...")
 
         # Create parent directory if it doesn't exist
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        os.makedirs(model_dir, exist_ok=True)
 
         # Check if git lfs is installed
         try:
@@ -85,59 +88,59 @@ def download_model_with_git(
             print("Git LFS not found. Installing git lfs...")
             subprocess.run(["git", "lfs", "install"], check=True)
 
-        # Clone the repository
-        clone_cmd = ["git", "clone", f"https://huggingface.co/{repo_id}", model_path]
+        # Clone the repository directly to model_dir
+        clone_cmd = ["git", "clone", f"https://huggingface.co/{repo_id}", model_dir]
 
         result = subprocess.run(clone_cmd, capture_output=True, text=True)
         if result.returncode == 0:
-            print(f"Successfully downloaded BAGEL model to {model_path}")
-            return True
+            print(f"Successfully downloaded BAGEL model to {model_dir}")
+            return model_dir
         else:
             print(f"Git clone failed: {result.stderr}")
-            return False
+            return None
 
     except Exception as e:
         print(f"Error downloading model with git: {e}")
-        return False
+        return None
 
 
 def download_model_with_hf_hub(
-    model_path: str, repo_id: str = "ByteDance-Seed/BAGEL-7B-MoT"
-) -> bool:
+    model_dir: str, repo_id: str = "ByteDance-Seed/BAGEL-7B-MoT"
+) -> str:
     """
     Download model using huggingface_hub (fallback method)
 
     Args:
-        model_path: Local path to download the model
+        model_dir: Directory to download the repo to (repo files will be placed directly here)
         repo_id: Hugging Face repository ID
 
     Returns:
-        True if successful, False otherwise
+        Path to the downloaded model if successful, None otherwise
     """
     try:
         from huggingface_hub import snapshot_download
 
-        print(f"Downloading BAGEL model using huggingface_hub to {model_path}...")
+        print(f"Downloading BAGEL model using huggingface_hub to {model_dir}...")
 
         # Create parent directory if it doesn't exist
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        os.makedirs(model_dir, exist_ok=True)
 
-        # Download the model
+        # Download the entire repository directly to model_dir
         snapshot_download(
-            repo_id=repo_id, local_dir=model_path, local_dir_use_symlinks=False
+            repo_id=repo_id, local_dir=model_dir, local_dir_use_symlinks=False
         )
 
-        print(f"Successfully downloaded BAGEL model to {model_path}")
-        return True
+        print(f"Successfully downloaded BAGEL model to {model_dir}")
+        return model_dir
 
     except ImportError:
         print(
             "huggingface_hub not installed. Please install it with: pip install huggingface_hub"
         )
-        return False
+        return None
     except Exception as e:
         print(f"Error downloading model with huggingface_hub: {e}")
-        return False
+        return None
 
 
 def check_model_files(model_path: str) -> bool:
@@ -162,6 +165,27 @@ def check_model_files(model_path: str) -> bool:
             return False
     return True
 
+def check_df11_model_files(model_path: str) -> bool:
+    """
+    Check if all required model files exist
+
+    Args:
+        model_path: Path to the model directory
+
+    Returns:
+        True if all files exist, False otherwise
+    """
+    required_files = [
+        "llm_config.json",
+        "vit_config.json",
+        "vae/ae.safetensors",
+        "language_model_lm_head.safetensors",
+    ]
+
+    for file in required_files:
+        if not os.path.exists(os.path.join(model_path, file)):
+            return False
+    return True
 
 def pil_to_tensor(img: Image.Image) -> torch.Tensor:
     """Convert PIL image to ComfyUI tensor format"""
@@ -222,8 +246,12 @@ class BagelModelLoader:
             Dictionary containing all model components
         """
         try:
-            # Define local model directory
-            local_model_dir = os.path.join(os.getcwd(), "models", "bagel")
+            # Define base model directory
+            base_model_dir = os.path.join(os.getcwd(), "models", "Bagel")
+
+            # Extract repo name from model_path for the subdirectory
+            repo_name = model_path.split("/")[-1] if "/" in model_path else model_path
+            local_model_dir = os.path.join(base_model_dir, repo_name)
 
             # Check if model exists locally, if not, download it
             if not os.path.exists(local_model_dir) or not check_model_files(
@@ -232,10 +260,12 @@ class BagelModelLoader:
                 print(
                     f"Model not found locally. Attempting to download from {model_path}..."
                 )
-                os.makedirs(local_model_dir, exist_ok=True)
 
                 # Attempt to download using huggingface_hub
-                if not download_model_with_hf_hub(local_model_dir, repo_id=model_path):
+                downloaded_path = download_model_with_hf_hub(
+                    local_model_dir, repo_id=model_path
+                )
+                if not downloaded_path:
                     raise FileNotFoundError(
                         f"Failed to download BAGEL model. Please manually download it from "
                         f"{model_path} and place it in {local_model_dir}"
@@ -307,6 +337,191 @@ class BagelModelLoader:
             ).eval()
 
             # Create inferencer
+            inferencer = InterleaveInferencer(
+                model=model,
+                vae_model=vae_model,
+                tokenizer=tokenizer,
+                vae_transform=vae_transform,
+                vit_transform=vit_transform,
+                new_token_ids=new_token_ids,
+            )
+
+            # Wrap as model dictionary
+            model_dict = {
+                "model": model,
+                "inferencer": inferencer,
+                "tokenizer": tokenizer,
+                "vae_model": vae_model,
+                "vae_transform": vae_transform,
+                "vit_transform": vit_transform,
+                "config": config,
+                "model_path": local_model_dir,
+            }
+
+            print(f"Successfully loaded BAGEL model from {local_model_dir}")
+            return (model_dict,)
+
+        except Exception as e:
+            print(f"Error loading BAGEL model: {e}")
+            raise e
+
+
+class BagelModelLoaderDF11:
+    """BAGEL Model Loader Node"""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model_path": (
+                    "STRING",
+                    {
+                        "default": "DFloat11/BAGEL-7B-MoT-DF11",
+                        "tooltip": "Hugging Face model repo name or local path",
+                    },
+                ),
+            }
+        }
+
+    RETURN_TYPES = ("BAGEL_MODEL",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "load_model"
+    CATEGORY = "BAGEL/Core"
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, model_path):
+        """Validate input parameters"""
+        if not isinstance(model_path, str) or not model_path.strip():
+            return "Model path must be a non-empty string"
+
+        return True
+
+    def load_model(self, model_path: str) -> Tuple[Dict[str, Any]]:
+        """
+        Load BAGEL model and its components. Automatically download the model if not found.
+
+        Args:
+            model_path: URL to the Hugging Face model repository
+
+        Returns:
+            Dictionary containing all model components
+        """
+        try:
+            # Define base model directory
+            base_model_dir = os.path.join(os.getcwd(), "models", "Bagel")
+
+            # Extract repo name from model_path for the subdirectory
+            repo_name = model_path.split("/")[-1] if "/" in model_path else model_path
+            local_model_dir = os.path.join(base_model_dir, repo_name)
+
+            # Check if model exists locally, if not, download it
+            if not os.path.exists(local_model_dir) or not check_model_files(
+                local_model_dir
+            ):
+                print(
+                    f"Model not found locally. Attempting to download from {model_path}..."
+                )
+            
+                # Attempt to download using huggingface_hub
+                downloaded_path = download_model_with_hf_hub(
+                    local_model_dir, repo_id=model_path
+                )
+                if not downloaded_path:
+                    raise FileNotFoundError(
+                        f"Failed to download BAGEL model. Please manually download it from "
+                        f"{model_path} and place it in {local_model_dir}"
+                    )
+            
+                print(f"Successfully downloaded BAGEL model to {local_model_dir}")
+
+            # Final check that all required files exist
+            if not check_df11_model_files(local_model_dir):
+                raise FileNotFoundError(
+                    f"Required model files missing in {local_model_dir}"
+                )
+
+            # Load configuration files
+            llm_config = Qwen2Config.from_json_file(os.path.join(local_model_dir, "llm_config.json"))
+            llm_config.qk_norm = True
+            llm_config.tie_word_embeddings = False
+            llm_config.layer_module = "Qwen2MoTDecoderLayer"
+
+            vit_config = SiglipVisionConfig.from_json_file(os.path.join(local_model_dir, "vit_config.json"))
+            vit_config.rope = False
+            vit_config.num_hidden_layers -= 1
+
+            vae_model, vae_config = load_ae(local_path=os.path.join(local_model_dir, "vae/ae.safetensors"))
+
+            config = BagelConfig(
+                visual_gen=True,
+                visual_und=True,
+                llm_config=llm_config, 
+                vit_config=vit_config,
+                vae_config=vae_config,
+                vit_max_num_patch_per_side=70,
+                connector_act='gelu_pytorch_tanh',
+                latent_patch_size=2,
+                max_latent_size=64,
+            )
+
+            with init_empty_weights():
+                language_model = Qwen2ForCausalLM(llm_config)
+                vit_model      = SiglipVisionModel(vit_config)
+                model          = Bagel(language_model, vit_model, config)
+                model.vit_model.vision_model.embeddings.convert_conv2d_to_linear(vit_config, meta=True)
+
+            tokenizer = Qwen2Tokenizer.from_pretrained(local_model_dir)
+            tokenizer, new_token_ids, _ = add_special_tokens(tokenizer)
+
+            vae_transform = ImageTransform(1024, 512, 16)
+            vit_transform = ImageTransform(980, 224, 14)
+
+            model = model.to(torch.bfloat16)
+            model.load_state_dict({
+                name: torch.empty(param.shape, dtype=param.dtype, device='cpu') if param.device.type == 'meta' else param
+                for name, param in model.state_dict().items()
+            }, assign=True)
+
+            DFloat11Model.from_pretrained(
+                local_model_dir,
+                bfloat16_model=model,
+                device='cpu',
+            )
+
+            # Model Loading and Multi GPU Infernece Preparing
+            device_map = infer_auto_device_map(
+                model,
+                max_memory={0: "40GiB"},
+                no_split_module_classes=["Bagel", "Qwen2MoTDecoderLayer", "SiglipVisionModel"],
+            )
+
+            same_device_modules = [
+                'language_model.model.embed_tokens',
+                'time_embedder',
+                'latent_pos_embed',
+                'vae2llm',
+                'llm2vae',
+                'connector',
+                'vit_pos_embed'
+            ]
+
+            if torch.cuda.device_count() == 1:
+                first_device = device_map.get(same_device_modules[0], "cuda:0")
+                for k in same_device_modules:
+                    if k in device_map:
+                        device_map[k] = first_device
+                    else:
+                        device_map[k] = "cuda:0"
+            else:
+                first_device = device_map.get(same_device_modules[0])
+                for k in same_device_modules:
+                    if k in device_map:
+                        device_map[k] = first_device
+
+            model = dispatch_model(model, device_map=device_map, force_hooks=True)
+            model = model.eval()
+
+            # Inferencer Preparing 
             inferencer = InterleaveInferencer(
                 model=model,
                 vae_model=vae_model,
@@ -937,6 +1152,7 @@ class BagelImageUnderstanding:
 # Node mappings
 NODE_CLASS_MAPPINGS = {
     "BagelModelLoader": BagelModelLoader,
+    "BagelModelLoaderDF11": BagelModelLoaderDF11,
     "BagelTextToImage": BagelTextToImage,
     "BagelImageEdit": BagelImageEdit,
     "BagelImageUnderstanding": BagelImageUnderstanding,
@@ -945,6 +1161,7 @@ NODE_CLASS_MAPPINGS = {
 # Display name mappings
 NODE_DISPLAY_NAME_MAPPINGS = {
     "BagelModelLoader": "BAGEL Model Loader",
+    "BagelModelLoaderDF11": "BAGEL Model Loader DFolat11 Format",
     "BagelTextToImage": "BAGEL Text to Image",
     "BagelImageEdit": "BAGEL Image Edit",
     "BagelImageUnderstanding": "BAGEL Image Understanding",
