@@ -1,8 +1,13 @@
 # ComfyUI-REDBagel-DF11
 
 A ComfyUI custom node package based on the BAGEL-7B-MoT multimodal model.
+
 支持 dfloat11 量化规格模型，24G可跑全量无损画质，刀黄行动（手刃黄夹克）！
+
 Support dfloat11 quantization specification model, 24G can run full lossless image quality
+
+#24G全量加载模型无需卸载，秒级出图（低于1分钟） 
+---
 
 about dfloat11
 
@@ -34,7 +39,7 @@ sentencepiece>=0.1.99
 transformers>=4.51.0
 accelerate>=0.34.0
 dfloat11[cuda12]
-# wandb
+
 
 ## About BAGEL
 
