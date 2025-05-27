@@ -2,7 +2,32 @@
 
 A ComfyUI custom node package based on the BAGEL-7B-MoT multimodal model.
 
-没有完成，当前只是Fork原库代码，看懂中文的别折腾我这个。
+佬杨同志 @wikeeyang 手撸 node.py 代码,现已支持加载DF11规格模型
+
+1. 需要安装 dfloat11[cuda12] 依赖包。
+2. 安装 ComfyUI-BAGEL 插件(已有则不需要重装)。
+3. 把原来的 node.py 文件重命名进行备份。
+4. 用群里发的 node.py 替换。
+5. 启动 ComfyUI，会比原来插件增加了一个 DF11 模型的加载节点，其它不变。
+
+requirements.txt 更新DF11
+
+decord>=0.6.0
+einops>=0.8.1
+huggingface_hub
+matplotlib>=3.7.0
+numpy>=1.24.4
+opencv_python>=4.7.0.72
+pyarrow>=11.0.0
+PyYAML>=6.0.2
+Requests>=2.32.3
+safetensors>=0.4.5
+scipy>=1.10.1
+sentencepiece>=0.1.99
+transformers>=4.51.0
+accelerate>=0.34.0
+dfloat11[cuda12]
+# wandb
 
 ## About BAGEL
 
