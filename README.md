@@ -1,5 +1,8 @@
 # ComfyUI-REDBAGEL-DF11
 
+DFloat11实现已合并到BAGEL主节点：
+https://github.com/neverbiasu/ComfyUI-BAGEL
+
 A ComfyUI custom node package based on the BAGEL-7B-MoT multimodal model.
 
 支持 dfloat11 压缩规格模型，24G可跑全量无损画质，刀黄行动（手刃黄夹克）！
