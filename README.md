@@ -8,7 +8,6 @@ Support dfloat11 quantization specification model, 24G can run full lossless ima
 
 24G全量加载模型无需卸载，秒级出图（低于1分钟） 
 
-#无需FlashAttention2 (50系无需编译Flash_attn)
 ---
 
 about dfloat11
